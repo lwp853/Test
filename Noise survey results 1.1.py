@@ -358,7 +358,7 @@ class DataProcessorApp(tk.Tk):
         if self.latest_summary is None or self.latest_summary.empty:
             messagebox.showwarning("Spectrum", "Please process a file first.")
             return
-        freq_cols = [c for c in self.latest_summary.columns if c.endswith('Hz')]
+        freq_cols = [c for c in self.latest_summary.columns if 'Hz' in c]
         if not freq_cols:
             messagebox.showwarning("Spectrum", "No octave-band data found.")
             return
@@ -470,8 +470,36 @@ class DataProcessorApp(tk.Tk):
                 LAmin_night = (np.percentile(night_rows['LAmin'].dropna(), 5)
                                if not night_rows.empty and not night_rows['LAmin'].dropna().empty
                                else "No Data")
-                
-                daily_data.append({
+
+                band_metrics = {}
+                freq_bands = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
+                for hz in freq_bands:
+                    for metric in ["LAeq", "LAmax", "LA90", "LAmin"]:
+                        col = f"{metric} {hz}Hz"
+                        func = None
+                        if metric == "LAeq":
+                            func = lambda s: 10 * np.log10(np.mean(10 ** (s / 10)))
+                        elif metric == "LAmax":
+                            func = lambda s: np.percentile(s, 95)
+                        elif metric == "LA90":
+                            func = lambda s: s.mode().iloc[0]
+                        elif metric == "LAmin":
+                            func = lambda s: np.percentile(s, 5)
+
+                        if col in day_rows.columns:
+                            vals = day_rows[col].dropna()
+                            val_day = func(vals) if not vals.empty else "No Data"
+                        else:
+                            val_day = "No Data"
+                        if col in night_rows.columns:
+                            vals = night_rows[col].dropna()
+                            val_night = func(vals) if not vals.empty else "No Data"
+                        else:
+                            val_night = "No Data"
+                        band_metrics[f"{metric} {hz}Hz Day"] = val_day
+                        band_metrics[f"{metric} {hz}Hz Night"] = val_night
+
+                day_entry = {
                     "Date": d,
                     "LAeq Day": LAeq_day,
                     "LAeq Night": LAeq_night,
@@ -480,8 +508,10 @@ class DataProcessorApp(tk.Tk):
                     "LA90 Day": LA90_day,
                     "LA90 Night": LA90_night,
                     "LAmin Day": LAmin_day,
-                    "LAmin Night": LAmin_night
-                })
+                    "LAmin Night": LAmin_night,
+                }
+                day_entry.update(band_metrics)
+                daily_data.append(day_entry)
             daily_summary_df = pd.DataFrame(daily_data)
             
             # Step 3: Compute overall values
