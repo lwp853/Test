@@ -367,7 +367,13 @@ class DataProcessorApp(tk.Tk):
         if not freq_cols:
             messagebox.showwarning("Spectrum", "No octave-band data found.")
             return
-        spectrum = self.latest_summary[freq_cols].mean()
+        # Convert "No Data" placeholders to NaN so numeric aggregation works
+        spectrum_df = self.latest_summary[freq_cols].replace("No Data", np.nan)
+        spectrum_df = spectrum_df.apply(pd.to_numeric, errors="coerce")
+        if spectrum_df.dropna(how="all").empty:
+            messagebox.showwarning("Spectrum", "No valid numeric octave-band data found.")
+            return
+        spectrum = spectrum_df.mean()
         plt.figure(figsize=(8, 6))
         spectrum.plot(kind='bar')
         plt.xlabel('Frequency Band (Hz)')
