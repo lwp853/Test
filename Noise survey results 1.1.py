@@ -20,6 +20,11 @@ import webbrowser
 import folium
 import matplotlib.pyplot as plt
 
+# Full-octave frequency bands with Z-weighting
+OCTAVE_BANDS_Z = [
+    16, 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000
+]
+
 # ------------------ Logging Setup ------------------
 logging.basicConfig(
     filename='acoustic_processor.log',
@@ -358,7 +363,7 @@ class DataProcessorApp(tk.Tk):
         if self.latest_summary is None or self.latest_summary.empty:
             messagebox.showwarning("Spectrum", "Please process a file first.")
             return
-        freq_cols = [c for c in self.latest_summary.columns if c.endswith('Hz')]
+        freq_cols = [c for c in self.latest_summary.columns if 'Hz' in c]
         if not freq_cols:
             messagebox.showwarning("Spectrum", "No octave-band data found.")
             return
@@ -440,6 +445,19 @@ class DataProcessorApp(tk.Tk):
             
             # Step 2: Compute daily summary (LAeq, LAmax, LA90, LAmin for Day and Night)
             unique_dates = sorted(df['DateOnly'].dropna().unique())
+
+            # Determine which octave-band metrics exist in the input
+            has_L90_band = any(
+                c.startswith("LA90 ") or c.startswith("L90 Z ") for c in df.columns
+            )
+            octave_aliases = {
+                "LAeq": ["LAeq", "Leq Z"],
+                "LAmax": ["LAmax", "Lmax Z"],
+                "LAmin": ["LAmin", "Lmin Z"],
+            }
+            if has_L90_band:
+                octave_aliases["LA90"] = ["LA90", "L90 Z"]
+
             daily_data = []
             for d in unique_dates:
                 day_rows = df[(df['Period'] == "Daytime") & (df['DateOnly'] == d)]
@@ -470,8 +488,43 @@ class DataProcessorApp(tk.Tk):
                 LAmin_night = (np.percentile(night_rows['LAmin'].dropna(), 5)
                                if not night_rows.empty and not night_rows['LAmin'].dropna().empty
                                else "No Data")
-                
-                daily_data.append({
+
+                band_metrics = {}
+                freq_bands = OCTAVE_BANDS_Z
+
+                aliases = octave_aliases
+
+                for hz in freq_bands:
+                    for metric, prefix_list in aliases.items():
+                        candidates = [f"{p} {hz}Hz" for p in prefix_list]
+                        func = None
+                        if metric == "LAeq":
+                            func = lambda s: 10 * np.log10(np.mean(10 ** (s / 10)))
+                        elif metric == "LAmax":
+                            func = lambda s: np.percentile(s, 95)
+                        elif metric == "LA90":
+                            func = lambda s: s.mode().iloc[0]
+                        elif metric == "LAmin":
+                            func = lambda s: np.percentile(s, 5)
+
+                        col_day = next((c for c in candidates if c in day_rows.columns), None)
+                        if col_day:
+                            vals = day_rows[col_day].dropna()
+                            val_day = func(vals) if not vals.empty else "No Data"
+                        else:
+                            val_day = "No Data"
+
+                        col_night = next((c for c in candidates if c in night_rows.columns), None)
+                        if col_night:
+                            vals = night_rows[col_night].dropna()
+                            val_night = func(vals) if not vals.empty else "No Data"
+                        else:
+                            val_night = "No Data"
+
+                        band_metrics[f"{metric} {hz}Hz Day"] = val_day
+                        band_metrics[f"{metric} {hz}Hz Night"] = val_night
+
+                day_entry = {
                     "Date": d,
                     "LAeq Day": LAeq_day,
                     "LAeq Night": LAeq_night,
@@ -480,8 +533,10 @@ class DataProcessorApp(tk.Tk):
                     "LA90 Day": LA90_day,
                     "LA90 Night": LA90_night,
                     "LAmin Day": LAmin_day,
-                    "LAmin Night": LAmin_night
-                })
+                    "LAmin Night": LAmin_night,
+                }
+                day_entry.update(band_metrics)
+                daily_data.append(day_entry)
             daily_summary_df = pd.DataFrame(daily_data)
             
             # Step 3: Compute overall values
