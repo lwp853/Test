@@ -18,6 +18,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 import os
 import webbrowser
 import folium
+import matplotlib.pyplot as plt
 
 # ------------------ Logging Setup ------------------
 logging.basicConfig(
@@ -69,17 +70,41 @@ def round_if_number(x, decimals=1):
     return x
 
 # Mapping function using Folium
-def show_map_with_folium(latitudes, longitudes, labels=None):
-    """Creates an interactive map with markers using Folium."""
+def show_map_with_folium(latitudes, longitudes, labels=None, values=None):
+    """Creates an interactive map with markers using Folium.
+    If values are provided, markers are colour-coded based on the value
+    (simple green/orange/red scheme).
+    """
     if len(latitudes) == 0 or len(longitudes) == 0:
         messagebox.showwarning("Mapping", "No valid location data available.")
         return
     avg_lat = np.mean(latitudes)
     avg_lon = np.mean(longitudes)
     m = folium.Map(location=[avg_lat, avg_lon], zoom_start=10)
+    def value_color(v):
+        try:
+            if v is None or v == "No Data" or np.isnan(v):
+                return "blue"
+            if v < 50:
+                return "green"
+            elif v < 70:
+                return "orange"
+            else:
+                return "red"
+        except Exception:
+            return "blue"
+
     for i in range(len(latitudes)):
         label = labels[i] if (labels and i < len(labels)) else f"Site {i+1}"
-        folium.Marker(location=[latitudes[i], longitudes[i]], popup=str(label)).add_to(m)
+        color = value_color(values[i]) if values and i < len(values) else "blue"
+        folium.CircleMarker(
+            location=[latitudes[i], longitudes[i]],
+            radius=6,
+            color=color,
+            fill=True,
+            fill_color=color,
+            popup=str(label),
+        ).add_to(m)
     map_file = "temp_map.html"
     m.save(map_file)
     webbrowser.open(os.path.abspath(map_file))
@@ -149,6 +174,10 @@ class DataProcessorApp(tk.Tk):
         self.tab6 = ttk.Frame(notebook)
         notebook.add(self.tab6, text="Mapping")
         self.create_mapping_tab(self.tab6)
+
+        self.tab7 = ttk.Frame(notebook)
+        notebook.add(self.tab7, text="Graphs")
+        self.create_graph_tab(self.tab7)
     
     def create_process_tab(self, frame):
         btn_frame = tk.Frame(frame)
@@ -201,6 +230,18 @@ class DataProcessorApp(tk.Tk):
     def create_mapping_tab(self, frame):
         btn = tk.Button(frame, text="Show Map", command=self.run_mapping)
         btn.pack(pady=20)
+
+    def create_graph_tab(self, frame):
+        btn1 = tk.Button(frame, text="Overlay LAeq/LAmax/LA90", command=self.plot_overlaid_levels)
+        btn1.pack(pady=5)
+        btn2 = tk.Button(frame, text="Distribution Histograms", command=self.plot_histograms)
+        btn2.pack(pady=5)
+        btn3 = tk.Button(frame, text="Long-term Trend", command=self.plot_long_term_trend)
+        btn3.pack(pady=5)
+        btn4 = tk.Button(frame, text="Event Detection", command=self.detect_events)
+        btn4.pack(pady=5)
+        btn5 = tk.Button(frame, text="Octave Band Analysis", command=self.plot_octave_band)
+        btn5.pack(pady=5)
     
     def run_mapping(self):
         """
@@ -235,7 +276,97 @@ class DataProcessorApp(tk.Tk):
         if not latitudes or not longitudes:
             messagebox.showwarning("Mapping", "No valid lat/lon data to plot after user entry.")
             return
-        show_map_with_folium(latitudes, longitudes, labels)
+        values = None
+        if "LAeq Day" in self.latest_summary.columns:
+            values = self.latest_summary["LAeq Day"].tolist()
+        show_map_with_folium(latitudes, longitudes, labels, values)
+
+    def plot_overlaid_levels(self):
+        if self.latest_summary is None or self.latest_summary.empty:
+            messagebox.showwarning("Graph", "Please process a file first.")
+            return
+        df = self.latest_summary
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['Date'], df['LAeq Day'], marker='o', label='LAeq Day')
+        if 'LAmax Day' in df.columns:
+            plt.plot(df['Date'], df['LAmax Day'], marker='o', label='LAmax Day')
+        if 'LA90 Day' in df.columns:
+            plt.plot(df['Date'], df['LA90 Day'], marker='o', label='LA90 Day')
+        plt.xlabel('Date')
+        plt.ylabel('Sound Level (dB)')
+        plt.legend()
+        plt.title('Daily Noise Levels')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+    def plot_histograms(self):
+        if self.latest_summary is None or self.latest_summary.empty:
+            messagebox.showwarning("Graph", "Please process a file first.")
+            return
+        df = self.latest_summary
+        cols = [c for c in ['LAeq Day', 'LAmax Day', 'LA90 Day'] if c in df.columns]
+        if not cols:
+            messagebox.showwarning("Graph", "No suitable columns for histogram.")
+            return
+        df[cols].hist(bins=20, figsize=(8, 6))
+        plt.suptitle('Distribution of Noise Levels (Day)')
+        plt.tight_layout()
+        plt.show()
+
+    def plot_long_term_trend(self):
+        if self.latest_summary is None or self.latest_summary.empty:
+            messagebox.showwarning("Graph", "Please process a file first.")
+            return
+        if 'Date' not in self.latest_summary.columns or 'LAeq Day' not in self.latest_summary.columns:
+            messagebox.showwarning("Graph", "Required columns missing.")
+            return
+        df = self.latest_summary.sort_values('Date')
+        df['MA7'] = df['LAeq Day'].rolling(window=7, min_periods=1).mean()
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['Date'], df['LAeq Day'], label='LAeq Day')
+        plt.plot(df['Date'], df['MA7'], label='7-day Moving Avg', linestyle='--')
+        plt.xlabel('Date')
+        plt.ylabel('LAeq Day (dB)')
+        plt.legend()
+        plt.title('Long-term Trend')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+    def detect_events(self):
+        if self.latest_summary is None or self.latest_summary.empty:
+            messagebox.showwarning("Events", "Please process a file first.")
+            return
+        if 'LAmax Day' not in self.latest_summary.columns:
+            messagebox.showwarning("Events", "LAmax Day column missing.")
+            return
+        threshold = simpledialog.askfloat("Threshold", "Enter LAmax threshold:", minvalue=0)
+        if threshold is None:
+            return
+        exceed = self.latest_summary[self.latest_summary['LAmax Day'] > threshold]
+        if exceed.empty:
+            messagebox.showinfo("Events", "No exceedances detected.")
+        else:
+            dates = ', '.join(exceed['Date'].astype(str))
+            messagebox.showinfo("Events", f"Exceedances on: {dates}")
+
+    def plot_octave_band(self):
+        if self.latest_summary is None or self.latest_summary.empty:
+            messagebox.showwarning("Spectrum", "Please process a file first.")
+            return
+        freq_cols = [c for c in self.latest_summary.columns if c.endswith('Hz')]
+        if not freq_cols:
+            messagebox.showwarning("Spectrum", "No octave-band data found.")
+            return
+        spectrum = self.latest_summary[freq_cols].mean()
+        plt.figure(figsize=(8, 6))
+        spectrum.plot(kind='bar')
+        plt.xlabel('Frequency Band (Hz)')
+        plt.ylabel('Level (dB)')
+        plt.title('Average Octave Band Spectrum')
+        plt.tight_layout()
+        plt.show()
     
     def browse_file(self):
         file_path = filedialog.askopenfilename(
