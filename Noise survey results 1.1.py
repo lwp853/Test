@@ -145,6 +145,7 @@ class DataProcessorApp(tk.Tk):
         self.anomaly_threshold = 2.0  # default anomaly threshold (in standard deviations)
         self.latest_summary = None   # Daily summary DataFrame
         self.latest_overall = None   # Overall metrics dict
+        self.raw_data = None        # Full processed DataFrame
         self.create_widgets()
     
     def create_widgets(self):
@@ -242,6 +243,8 @@ class DataProcessorApp(tk.Tk):
         btn4.pack(pady=5)
         btn5 = tk.Button(frame, text="Octave Band Analysis", command=self.plot_octave_band)
         btn5.pack(pady=5)
+        btn6 = tk.Button(frame, text="Time Series (Full Data)", command=self.plot_time_series)
+        btn6.pack(pady=5)
     
     def run_mapping(self):
         """
@@ -365,6 +368,29 @@ class DataProcessorApp(tk.Tk):
         plt.xlabel('Frequency Band (Hz)')
         plt.ylabel('Level (dB)')
         plt.title('Average Octave Band Spectrum')
+        plt.tight_layout()
+        plt.show()
+
+    def plot_time_series(self):
+        if self.raw_data is None or self.raw_data.empty:
+            messagebox.showwarning("Graph", "Please process a file first.")
+            return
+        df = self.raw_data.dropna(subset=['DateTime']).sort_values('DateTime')
+        if df.empty:
+            messagebox.showwarning("Graph", "No DateTime information available.")
+            return
+        plt.figure(figsize=(10, 6))
+        if 'LAeq' in df.columns:
+            plt.plot(df['DateTime'], df['LAeq'], label='LAeq')
+        if 'LAmax' in df.columns:
+            plt.plot(df['DateTime'], df['LAmax'], label='LAmax')
+        if 'LA90' in df.columns:
+            plt.plot(df['DateTime'], df['LA90'], label='LA90')
+        plt.xlabel('Date and Time')
+        plt.ylabel('Sound Level (dB)')
+        plt.legend()
+        plt.title('Noise Levels Over Time')
+        plt.grid(True)
         plt.tight_layout()
         plt.show()
     
@@ -584,6 +610,7 @@ class DataProcessorApp(tk.Tk):
             
             self.latest_overall = overall_values
             self.latest_summary = daily_summary_df
+            self.raw_data = df
             
             # Step 4: Export custom Excel output
             output_file = filedialog.asksaveasfilename(defaultextension=".xlsx",
@@ -594,6 +621,10 @@ class DataProcessorApp(tk.Tk):
                     daily_summary_df.to_excel(writer, sheet_name="Daily Summary", index=False)
                     ov_df = pd.DataFrame(list(overall_values.items()), columns=["Metric", "Value"])
                     ov_df.to_excel(writer, sheet_name="Overall Metrics", index=False)
+                    df.to_excel(writer, sheet_name="Full Data", index=False)
+                    freq_cols = [c for c in df.columns if c.endswith('Hz')]
+                    if freq_cols:
+                        df[freq_cols].to_excel(writer, sheet_name="Octave Bands", index=False)
                 messagebox.showinfo("Success", "Data processed successfully! Excel file created. You can now generate a PDF report.")
             else:
                 messagebox.showinfo("Success", "Data processed successfully (Excel save was skipped). You can now generate a PDF report.")
