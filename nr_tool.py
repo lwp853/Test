@@ -23,7 +23,9 @@ class NRTool(tk.Tk):
         super().__init__()
         self.title("NR Rating Tool")
         self.curve_vars = {}
-        self.entries = {'Low': [], 'Medium': [], 'High': []}
+        # Each condition will use a Text widget so the user can paste
+        # a row of numbers for multiple measurement sets.
+        self.text_boxes = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -43,14 +45,15 @@ class NRTool(tk.Tk):
         # Input fields
         input_frame = ttk.LabelFrame(frm, text="Octave Band SPL (dB)")
         input_frame.grid(row=1, column=0, sticky="nsew", pady=5)
-        for col, freq in enumerate(FREQUENCIES):
-            ttk.Label(input_frame, text=f"{freq} Hz").grid(row=0, column=col + 1)
-        for row, cond in enumerate(self.entries.keys(), 1):
-            ttk.Label(input_frame, text=cond).grid(row=row, column=0, sticky='e')
-            for col in range(len(FREQUENCIES)):
-                e = ttk.Entry(input_frame, width=5)
-                e.grid(row=row, column=col + 1)
-                self.entries[cond].append(e)
+        instructions = (
+            "Enter 8 values separated by spaces or commas (one set per line)."
+        )
+        ttk.Label(input_frame, text=instructions).grid(row=0, column=0, columnspan=2, sticky="w")
+        for row, cond in enumerate(["Low", "Medium", "High"], start=1):
+            ttk.Label(input_frame, text=cond).grid(row=row, column=0, sticky="ne")
+            txt = tk.Text(input_frame, width=50, height=3)
+            txt.grid(row=row, column=1, padx=5, pady=2)
+            self.text_boxes[cond] = txt
 
         # Action buttons
         btn_frame = ttk.Frame(frm)
@@ -72,19 +75,22 @@ class NRTool(tk.Tk):
         self.ax.set_xticklabels(FREQUENCIES)
 
     def _read_inputs(self):
-        """Return dictionary of condition -> list of SPL values. Raise ValueError if invalid."""
+        """Return dictionary of condition -> list of measurement sets."""
         data = {}
-        for cond, entries in self.entries.items():
-            values = []
-            for e in entries:
-                val = e.get()
-                if not val:
-                    raise ValueError(f"Missing value for {cond}")
+        for cond, txt in self.text_boxes.items():
+            lines = [ln.strip() for ln in txt.get("1.0", tk.END).splitlines() if ln.strip()]
+            sets = []
+            for idx, line in enumerate(lines, start=1):
+                parts = [p for p in line.replace(',', ' ').split() if p]
+                if len(parts) != len(FREQUENCIES):
+                    raise ValueError(f"{cond} set {idx} must have {len(FREQUENCIES)} values")
                 try:
-                    values.append(float(val))
+                    sets.append([float(p) for p in parts])
                 except ValueError:
-                    raise ValueError(f"Invalid numeric value '{val}' for {cond}")
-            data[cond] = values
+                    raise ValueError(f"Invalid numeric value in {cond} set {idx}")
+            if not sets:
+                raise ValueError(f"No data entered for {cond}")
+            data[cond] = sets
         return data
 
     def generate(self):
@@ -109,10 +115,13 @@ class NRTool(tk.Tk):
             self.ax.plot(FREQUENCIES, NR_CURVES[curve_name], label=curve_name, linestyle='--')
 
         # Evaluate each condition
-        for cond, values in measurements.items():
-            self.ax.plot(FREQUENCIES, values, marker='o', label=cond, color=colors[cond])
-            rating, exceeded = self._nr_rating(values)
-            results.append(f"{cond}: NR{rating} (exceed at {', '.join(exceeded) if exceeded else 'none'})")
+        for cond, sets in measurements.items():
+            for idx, values in enumerate(sets, start=1):
+                label = f"{cond} {idx}" if len(sets) > 1 else cond
+                self.ax.plot(FREQUENCIES, values, marker='o', label=label, color=colors[cond])
+                rating, exceeded = self._nr_rating(values)
+                freq_text = ', '.join(exceeded) if exceeded else 'none'
+                results.append(f"{label}: NR{rating} (exceed at {freq_text})")
 
         self.ax.legend()
         self.ax.set_xlabel('Frequency (Hz)')
