@@ -1,3 +1,12 @@
+"""Tkinter-based Noise Rating (NR) calculation tool.
+
+This application lets the user paste octave-band sound pressure level (SPL)
+measurements for Low, Medium and High operating conditions. It compares the
+measurements against standard NR curves and reports fractional NR ratings along
+with the frequencies that exceed the selected curves.  The plot can also be
+saved as a PNG or PDF file.
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import matplotlib.pyplot as plt
@@ -47,9 +56,12 @@ class NRTool(tk.Tk):
         input_frame = ttk.LabelFrame(frm, text="Octave Band SPL (dB)")
         input_frame.grid(row=1, column=0, sticky="nsew", pady=5)
         instructions = (
-            "Enter 8 values separated by spaces or commas (one set per line)."
+            "Enter 8 values separated by spaces or commas \
+            (one measurement set per line)."
         )
-        ttk.Label(input_frame, text=instructions).grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(input_frame, text=instructions).grid(
+            row=0, column=0, columnspan=2, sticky="w"
+        )
         for row, cond in enumerate(["Low", "Medium", "High"], start=1):
             ttk.Label(input_frame, text=cond).grid(row=row, column=0, sticky="ne")
             txt = tk.Text(input_frame, width=50, height=3)
@@ -130,14 +142,18 @@ class NRTool(tk.Tk):
         self.ax.grid(True)
         self.canvas.draw()
 
-        self.output.delete('1.0', tk.END)
-        self.output.insert(tk.END, "\n".join(results))
-        self.output.insert(tk.END, "\n\nCopy for report:\n")
-        self.output.insert(tk.END, "\n".join(results))
+        report_header = (
+            "NR results for BS 8233, BS EN 15251 and Planning conditions:\n"
+        )
+        report_block = report_header + "\n".join(results)
+
+        self.output.delete("1.0", tk.END)
+        self.output.insert(tk.END, report_block)
 
     def _nr_rating(self, values):
         """Return fractional NR rating and list of frequencies exceeding it."""
-        # Sort curves by numeric level for interpolation
+
+        # Sort curves numerically so we can interpolate between adjacent curves
         curve_items = sorted(((int(k[2:]), v) for k, v in NR_CURVES.items()), key=lambda x: x[0])
         band_ratings = []
         for idx, measurement in enumerate(values):
@@ -147,26 +163,33 @@ class NRTool(tk.Tk):
                 v1 = vals1[idx]
                 v2 = vals2[idx]
                 if v1 <= measurement <= v2:
+                    # Interpolate linearly between the two surrounding curves
                     frac = (measurement - v1) / (v2 - v1)
                     rating_band = n1 + frac * (n2 - n1)
                     break
             if rating_band is None:
                 if measurement < curve_items[0][1][idx]:
-                    # Below lowest curve, extrapolate downward
+                    # Measurement is below the lowest curve; extrapolate downward
                     n1, v1 = curve_items[0][0], curve_items[0][1][idx]
                     n2, v2 = curve_items[1][0], curve_items[1][1][idx]
                     rating_band = n1 - (v1 - measurement) / (v2 - v1) * (n2 - n1)
                 else:
-                    # Above highest curve, extrapolate upward
+                    # Measurement is above the highest curve; extrapolate upward
                     n1, v1 = curve_items[-2][0], curve_items[-2][1][idx]
                     n2, v2 = curve_items[-1][0], curve_items[-1][1][idx]
                     rating_band = n2 + (measurement - v2) / (v2 - v1) * (n2 - n1)
             band_ratings.append(rating_band)
 
         rating = max(band_ratings)
+
+        # Identify the nearest discrete NR curve to report which bands exceed it
         discrete = math.ceil(rating / 5) * 5
         discrete = max(20, min(50, discrete))
-        exceeded = [freq for freq, m, ref in zip(FREQUENCIES, values, NR_CURVES[f'NR{discrete}']) if m > ref]
+        exceeded = [
+            freq
+            for freq, m, ref in zip(FREQUENCIES, values, NR_CURVES[f"NR{discrete}"])
+            if m > ref
+        ]
         return round(rating, 1), exceeded
 
     def save_plot(self):
