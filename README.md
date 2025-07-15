@@ -21,3 +21,17 @@ Install dependencies:
 
 ```bash
 pip install matplotlib
+```
+
+## 3. Acoustic Report Generator
+
+The `acoustic_report.py` script creates a Word document summarizing room acoustic parameters from a CSV file. Each room is presented with bullet-pointed metrics and automatic comments when thresholds are exceeded.
+
+### Usage
+
+```bash
+pip install python-docx pandas
+python acoustic_report.py input.csv output.docx
+```
+
+The input CSV should include columns `Room Name`, `RT60`, `STI` and `LAeq`.
