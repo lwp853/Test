@@ -21,3 +21,15 @@ Install dependencies:
 
 ```bash
 pip install matplotlib
+```
+
+## 3. Noise Metrics Script
+
+A command-line tool for calculating daily **LAeq** and **Lden** values from hourly noise measurements stored in a CSV file. The script also plots daily averages and exports both the raw data and computed metrics to Excel.
+
+### Example
+
+```bash
+pip install pandas numpy matplotlib openpyxl
+python noise_metrics.py your_data.csv -o results.xlsx
+```
