@@ -153,6 +153,7 @@ class DataProcessorApp(tk.Tk):
         self.raw_data = None        # Full processed DataFrame
         self.meter_locations = []   # User added meter coordinates
         self.create_widgets()
+
     
     def create_widgets(self):
         notebook = ttk.Notebook(self)
