@@ -21,3 +21,22 @@ Install dependencies:
 
 ```bash
 pip install matplotlib
+```
+
+## 3. Noise Metrics Tool
+
+A utility for calculating daily **LAeq** and **Lden** values from hourly noise measurements. Results can be produced via the command line or through a simple Tkinter based interface. The tool can also generate a blank spreadsheet with the required columns.
+
+### Example
+
+```bash
+pip install pandas numpy matplotlib openpyxl
+# command-line usage
+python noise_metrics.py your_data.csv -o results.xlsx
+
+# launch the GUI
+python noise_metrics.py --gui
+
+# create an empty template
+python noise_metrics.py --template blank.xlsx
+```
