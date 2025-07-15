@@ -36,16 +36,7 @@ def classify_period(ts: pd.Timestamp) -> str:
 def calculate_daily_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate LAeq and Lden for each day."""
     df = df.copy()
-    df['Period'] = df['Hour'].apply(classify_period)
-    df['Date'] = df['Hour'].dt.date
-
-    summary = []
-    for date, group in df.groupby('Date'):
-        laeq = 10 * np.log10(np.mean(10 ** (group['Level_dB'] / 10)))
-        day_energy = (10 ** (group.loc[group['Period'] == 'day', 'Level_dB'] / 10)).sum()
-        eve_energy = (10 ** ((group.loc[group['Period'] == 'evening', 'Level_dB'] + 5) / 10)).sum()
-        night_energy = (10 ** ((group.loc[group['Period'] == 'night', 'Level_dB'] + 10) / 10)).sum()
-        lden = 10 * np.log10((day_energy + eve_energy + night_energy) / 24)
+@@ -46,40 +49,137 @@ def calculate_daily_metrics(df: pd.DataFrame) -> pd.DataFrame:
         summary.append({'Date': date, 'LAeq': laeq, 'Lden': lden})
 
     return pd.DataFrame(summary)
@@ -155,6 +146,7 @@ class NoiseMetricsApp(tk.Tk):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compute LAeq and Lden from hourly noise levels")
+    parser.add_argument('csv', help='Input CSV file with Hour and Level_dB columns')
     parser.add_argument('csv', nargs='?', help='Input CSV file with Hour and Level_dB columns')
     parser.add_argument('-o', '--output', default='noise_metrics.xlsx', help='Output Excel file')
     parser.add_argument('--template', metavar='PATH', help='Create blank template spreadsheet')
