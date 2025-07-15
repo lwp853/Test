@@ -1,4 +1,6 @@
 import re
+```python
+import re
 import io
 from typing import List, Tuple
 
@@ -109,3 +111,11 @@ if user_input:
     except Exception as exc:
         st.error(str(exc))
 
+if __name__ == "__main__":
+    # Allow running via `python octave_converter_app.py` for convenience.
+    # This internally invokes `streamlit run` to avoid missing context warnings.
+    import sys
+    import streamlit.web.cli as stcli
+
+    sys.argv = ["streamlit", "run", __file__]
+    sys.exit(stcli.main())

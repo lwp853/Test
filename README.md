@@ -45,10 +45,16 @@ pip install streamlit pandas matplotlib
 
 From the repository root, run:
 
-```bash
-streamlit run octave_converter_app.py
-```
+--- a/README.md
++++ b/README.md
+@@ ### Running the App
+-<<<<<<< du3qz5-codex/create-streamlit-app-for-third-octave-to-1/1-octave-conversi
+-
+-=======
+->>>>>>> main
+ From the repository root, run:
+ 
+ ```bash
+-streamlit run octave_converter_app.py
++streamlit run octave_converter_app.py
 
-The app provides a text area for pasting third-octave band data and
-outputs a table of the resulting octave band values along with a plot for
-comparison.
