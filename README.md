@@ -21,3 +21,27 @@ Install dependencies:
 
 ```bash
 pip install matplotlib
+```
+
+---
+
+## 2. Room Acoustics Plotter
+
+### Requirements
+
+- pandas
+- matplotlib
+
+Install dependencies:
+
+```bash
+pip install pandas matplotlib
+```
+
+This command line utility plots common acoustic parameters from Odeon simulation output files. Provide a CSV or whitespace separated text file containing columns `Receiver`, `Source`, `RT`, `C50` and `C80`. Each parameter is plotted across receivers (or sources) in separate subplots with optional threshold highlighting.
+
+Example:
+
+```bash
+python acoustics_plot.py results.csv --group-by Receiver --rt-threshold 1.5
+```
