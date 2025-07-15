@@ -1,9 +1,10 @@
-"""Tkinter-based Noise Rating (NR) calculation tool.
+"""
+Tkinter-based Noise Rating (NR) calculation tool.
 
-This application lets the user paste octave-band sound pressure level (SPL)
+This application lets the user paste octave‑band sound pressure level (SPL)
 measurements for Low, Medium and High operating conditions. It compares the
 measurements against standard NR curves and reports fractional NR ratings along
-with the frequencies that exceed the selected curves.  The plot can also be
+with the frequencies that exceed the selected curves. The plot can also be
 saved as a PNG or PDF file.
 """
 
@@ -26,6 +27,7 @@ NR_CURVES = {
 
 FREQUENCIES = ['63', '125', '250', '500', '1k', '2k', '4k', '8k']
 
+
 class NRTool(tk.Tk):
     """Main application window."""
 
@@ -34,7 +36,7 @@ class NRTool(tk.Tk):
         self.title("NR Rating Tool")
         self.curve_vars = {}
         # Each condition will use a Text widget so the user can paste
-        # a row of numbers for multiple measurement sets.
+        # one or more octave‑band measurement sets.
         self.text_boxes = {}
         self._build_ui()
 
@@ -47,7 +49,7 @@ class NRTool(tk.Tk):
         curves_frame = ttk.LabelFrame(frm, text="NR Curves")
         curves_frame.grid(row=0, column=0, sticky="w", padx=5, pady=5)
         for i, curve in enumerate(NR_CURVES.keys()):
-            var = tk.BooleanVar(value=curve == 'NR35')
+            var = tk.BooleanVar(value=(curve == 'NR35'))
             cb = ttk.Checkbutton(curves_frame, text=curve, variable=var)
             cb.grid(row=i // 4, column=i % 4, sticky='w')
             self.curve_vars[curve] = var
@@ -56,8 +58,8 @@ class NRTool(tk.Tk):
         input_frame = ttk.LabelFrame(frm, text="Octave Band SPL (dB)")
         input_frame.grid(row=1, column=0, sticky="nsew", pady=5)
         instructions = (
-            "Enter 8 values separated by spaces or commas \
-            (one measurement set per line)."
+            "Enter 8 values separated by spaces or commas "
+            "(one measurement set per line)."
         )
         ttk.Label(input_frame, text=instructions).grid(
             row=0, column=0, columnspan=2, sticky="w"
@@ -71,8 +73,12 @@ class NRTool(tk.Tk):
         # Action buttons
         btn_frame = ttk.Frame(frm)
         btn_frame.grid(row=2, column=0, pady=5)
-        ttk.Button(btn_frame, text="Generate", command=self.generate).grid(row=0, column=0, padx=5)
-        ttk.Button(btn_frame, text="Save Plot", command=self.save_plot).grid(row=0, column=1, padx=5)
+        ttk.Button(btn_frame, text="Generate", command=self.generate).grid(
+            row=0, column=0, padx=5
+        )
+        ttk.Button(btn_frame, text="Save Plot", command=self.save_plot).grid(
+            row=0, column=1, padx=5
+        )
 
         # Text output
         self.output = tk.Text(frm, width=80, height=10)
@@ -91,12 +97,18 @@ class NRTool(tk.Tk):
         """Return dictionary of condition -> list of measurement sets."""
         data = {}
         for cond, txt in self.text_boxes.items():
-            lines = [ln.strip() for ln in txt.get("1.0", tk.END).splitlines() if ln.strip()]
+            lines = [
+                ln.strip()
+                for ln in txt.get("1.0", tk.END).splitlines()
+                if ln.strip()
+            ]
             sets = []
             for idx, line in enumerate(lines, start=1):
                 parts = [p for p in line.replace(',', ' ').split() if p]
                 if len(parts) != len(FREQUENCIES):
-                    raise ValueError(f"{cond} set {idx} must have {len(FREQUENCIES)} values")
+                    raise ValueError(
+                        f"{cond} set {idx} must have {len(FREQUENCIES)} values"
+                    )
                 try:
                     sets.append([float(p) for p in parts])
                 except ValueError:
@@ -125,13 +137,24 @@ class NRTool(tk.Tk):
 
         # Plot NR curves
         for curve_name in selected_curves:
-            self.ax.plot(FREQUENCIES, NR_CURVES[curve_name], label=curve_name, linestyle='--')
+            self.ax.plot(
+                FREQUENCIES,
+                NR_CURVES[curve_name],
+                label=curve_name,
+                linestyle='--'
+            )
 
-        # Evaluate each condition
+        # Evaluate each condition and measurement set
         for cond, sets in measurements.items():
             for idx, values in enumerate(sets, start=1):
                 label = f"{cond} {idx}" if len(sets) > 1 else cond
-                self.ax.plot(FREQUENCIES, values, marker='o', label=label, color=colors[cond])
+                self.ax.plot(
+                    FREQUENCIES,
+                    values,
+                    marker='o',
+                    label=label,
+                    color=colors.get(cond, 'black')
+                )
                 rating, exceeded = self._nr_rating(values)
                 freq_text = ', '.join(exceeded) if exceeded else 'none'
                 results.append(f"{label}: NR{rating} (exceed at {freq_text})")
@@ -152,29 +175,29 @@ class NRTool(tk.Tk):
 
     def _nr_rating(self, values):
         """Return fractional NR rating and list of frequencies exceeding it."""
-
         # Sort curves numerically so we can interpolate between adjacent curves
-        curve_items = sorted(((int(k[2:]), v) for k, v in NR_CURVES.items()), key=lambda x: x[0])
+        curve_items = sorted(
+            ((int(k[2:]), v) for k, v in NR_CURVES.items()),
+            key=lambda x: x[0]
+        )
         band_ratings = []
         for idx, measurement in enumerate(values):
-            # Determine rating for this band via linear interpolation
             rating_band = None
+            # Interpolate between adjacent curves if within range
             for (n1, vals1), (n2, vals2) in zip(curve_items[:-1], curve_items[1:]):
                 v1 = vals1[idx]
                 v2 = vals2[idx]
                 if v1 <= measurement <= v2:
-                    # Interpolate linearly between the two surrounding curves
                     frac = (measurement - v1) / (v2 - v1)
                     rating_band = n1 + frac * (n2 - n1)
                     break
+            # Extrapolate if outside the lowest or highest curves
             if rating_band is None:
                 if measurement < curve_items[0][1][idx]:
-                    # Measurement is below the lowest curve; extrapolate downward
                     n1, v1 = curve_items[0][0], curve_items[0][1][idx]
                     n2, v2 = curve_items[1][0], curve_items[1][1][idx]
                     rating_band = n1 - (v1 - measurement) / (v2 - v1) * (n2 - n1)
                 else:
-                    # Measurement is above the highest curve; extrapolate upward
                     n1, v1 = curve_items[-2][0], curve_items[-2][1][idx]
                     n2, v2 = curve_items[-1][0], curve_items[-1][1][idx]
                     rating_band = n2 + (measurement - v2) / (v2 - v1) * (n2 - n1)
@@ -199,6 +222,7 @@ class NRTool(tk.Tk):
         if path:
             self.fig.savefig(path)
             messagebox.showinfo("Saved", f"Plot saved to {path}")
+
 
 if __name__ == '__main__':
     app = NRTool()
