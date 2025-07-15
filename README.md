@@ -1,60 +1,23 @@
 # NR Rating Tool
 
-This repository contains a Tkinter-based application for evaluating octave band sound pressure levels (SPL) against Noise Rating (NR) curves.
+This repository contains two utilities:
 
-## Requirements
+1. **NR Rating Tool**  
+   A Tkinter‑based application for evaluating octave‑band sound pressure levels (SPL) against Noise Rating (NR) curves. The tool reports fractional NR values (e.g. NR 26.2) using interpolation between the standard NR curves.
 
-- Python 3.8+
-- matplotlib
+2. **Third‑Octave to Octave Converter**  
+   A simple Streamlit utility for converting third‑octave band levels into ISO standard 1/1‑octave bands. Paste data copied from Excel and download the aggregated octave‑band SPLs as CSV.
 
-Install dependencies using:
+---
 
-```bash
-pip install matplotlib
-```
-
-## Running the Application
-
-From the repository root, run:
-
-```bash
-python nr_tool.py
-```
-
-Follow the on-screen instructions to enter octave band SPLs for Low, Medium and High conditions, select NR curves to compare against and generate plots/results. Use the "Save Plot" button to export a PNG or PDF of the graph.
-
-## Third-Octave to Octave Converter
-
-A simple Streamlit utility for converting third-octave band levels into
-ISO standard 1/1 octave bands. Paste data copied from Excel and download
-the aggregated octave band SPLs as CSV.
+## 1. NR Rating Tool
 
 ### Requirements
 
-- streamlit
-- pandas
+- Python 3.8+
 - matplotlib
 
-Install with:
+Install dependencies:
 
 ```bash
-pip install streamlit pandas matplotlib
-```
-
-### Running the App
-
-From the repository root, run:
-
---- a/README.md
-+++ b/README.md
-@@ ### Running the App
--<<<<<<< du3qz5-codex/create-streamlit-app-for-third-octave-to-1/1-octave-conversi
--
--=======
-->>>>>>> main
- From the repository root, run:
- 
- ```bash
--streamlit run octave_converter_app.py
-+streamlit run octave_converter_app.py
-
+pip install matplotlib
