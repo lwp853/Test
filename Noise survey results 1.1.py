@@ -151,7 +151,9 @@ class DataProcessorApp(tk.Tk):
         self.latest_summary = None   # Daily summary DataFrame
         self.latest_overall = None   # Overall metrics dict
         self.raw_data = None        # Full processed DataFrame
+        self.meter_locations = []   # User added meter coordinates
         self.create_widgets()
+
     
     def create_widgets(self):
         notebook = ttk.Notebook(self)
@@ -235,7 +237,21 @@ class DataProcessorApp(tk.Tk):
     
     def create_mapping_tab(self, frame):
         btn = tk.Button(frame, text="Show Map", command=self.run_mapping)
-        btn.pack(pady=20)
+        btn.pack(pady=5)
+        add_btn = tk.Button(frame, text="Add Meter Location", command=self.add_meter_location)
+        add_btn.pack(pady=5)
+
+    def add_meter_location(self):
+        name = simpledialog.askstring("Meter Name", "Name of the meter (e.g., SLM1):")
+        if name is None:
+            return
+        lat = simpledialog.askfloat("Meter Latitude", "Latitude:", minvalue=-90, maxvalue=90)
+        lon = simpledialog.askfloat("Meter Longitude", "Longitude:", minvalue=-180, maxvalue=180)
+        if lat is not None and lon is not None:
+            self.meter_locations.append((name, lat, lon))
+            messagebox.showinfo("Mapping", "Meter location added.")
+        else:
+            messagebox.showwarning("Mapping", "Meter location entry cancelled.")
 
     def create_graph_tab(self, frame):
         btn1 = tk.Button(frame, text="Overlay LAeq/LAmax/LA90", command=self.plot_overlaid_levels)
@@ -287,6 +303,17 @@ class DataProcessorApp(tk.Tk):
         values = None
         if "LAeq Day" in self.latest_summary.columns:
             values = self.latest_summary["LAeq Day"].tolist()
+        if values is None:
+            values = [None] * len(latitudes)
+        else:
+            values = list(values)
+
+        for name, lat, lon in self.meter_locations:
+            latitudes.append(lat)
+            longitudes.append(lon)
+            labels.append(name)
+            values.append(None)
+
         show_map_with_folium(latitudes, longitudes, labels, values)
 
     def plot_overlaid_levels(self):
@@ -367,7 +394,13 @@ class DataProcessorApp(tk.Tk):
         if not freq_cols:
             messagebox.showwarning("Spectrum", "No octave-band data found.")
             return
-        spectrum = self.latest_summary[freq_cols].mean()
+        # Convert "No Data" placeholders to NaN so numeric aggregation works
+        spectrum_df = self.latest_summary[freq_cols].replace("No Data", np.nan)
+        spectrum_df = spectrum_df.apply(pd.to_numeric, errors="coerce")
+        if spectrum_df.dropna(how="all").empty:
+            messagebox.showwarning("Spectrum", "No valid numeric octave-band data found.")
+            return
+        spectrum = spectrum_df.mean()
         plt.figure(figsize=(8, 6))
         spectrum.plot(kind='bar')
         plt.xlabel('Frequency Band (Hz)')
