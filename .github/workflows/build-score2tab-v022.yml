@@ -1,0 +1,52 @@
+name: Build Score2Tab v0.2.2 patch
+
+on:
+  push:
+    branches:
+      - score2tab-v0.2.2
+    paths:
+      - "score2tab-v0.2.2-patch/**"
+      - ".github/workflows/build-score2tab-v022.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: score2tab-v0.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax check
+        run: |
+          python -m py_compile \
+            score2tab-v0.2.2-patch/APPLY_V022_PATCH.py \
+            score2tab-v0.2.2-patch/score2tab/bass_verify.py
+
+      - name: Build patch ZIP
+        run: |
+          rm -f Score2Tab-v0.2.2-patch.zip
+          cd score2tab-v0.2.2-patch
+          zip -r ../Score2Tab-v0.2.2-patch.zip . \
+            -x "__pycache__/*" "*/__pycache__/*" "*.pyc"
+
+      - name: Commit downloadable ZIP
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f Score2Tab-v0.2.2-patch.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "Build Score2Tab v0.2.2 patch ZIP"
+            git push origin HEAD:score2tab-v0.2.2
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Score2Tab-v0.2.2-patch
+          path: Score2Tab-v0.2.2-patch.zip
