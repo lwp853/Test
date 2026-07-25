@@ -1,0 +1,34 @@
+Score2Tab v0.2.2 patch
+======================
+
+This is an in-place update for Score2Tab v0.2.1.
+
+1. Keep a copy of your current Score2Tab-Windows-v0.2.1 folder.
+2. Extract every item from this patch ZIP directly into that folder.
+   Allow Windows to merge the included score2tab folder.
+3. Double-click RUN_V022_PATCH.bat.
+4. When it reports success, start Score2Tab with RUN_SCORE2TAB.bat.
+5. Select Accurate (3 passes + bass check).
+
+What this adds
+--------------
+
+- A genuine larger-scale 400 dpi Audiveris pass.
+- A 600 dpi visual check below each staff.
+- Detection of hollow open-sixth-string whole-note basses and their ledger lines.
+- Conservative automatic insertion when one strong detection, or a repeated run
+  of detections, agrees with an absent lower voice in MusicXML.
+- Open-string tablature for inserted bass notes.
+- Evidence PNGs in Working Files\Visual Verification.
+- Per-measure entries in the quality report.
+
+The first detector is deliberately narrow. It is aimed at omitted sustained
+pedal basses such as the open E notes missing from bars 13-16 of Conde Claros.
+It does not invent arbitrary harmony or automatically add short bass notes.
+Lower-confidence detections are reported without changing the score.
+
+Recovery
+--------
+
+The installer stores original edited files in v0.2.1-backup. To revert, copy
+those files back to their original locations.
